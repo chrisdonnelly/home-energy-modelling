@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+
 
 @dataclass(frozen=True)
 class Volume:
@@ -11,33 +12,34 @@ class Volume:
     Attributes:
         cubic_metres: The volume in cubic metres (must be positive).
     """
+
     cubic_metres: float
-    
+
     def __post_init__(self) -> None:
         """Validate volume after initialization."""
-        if not isinstance(self.cubic_meters, (int, float)):
+        if not isinstance(self.cubic_metres, (int, float)):
             raise ValueError("Volume must be a number")
-        
-        if self.cubic_meters <= 0:
+
+        if self.cubic_metres <= 0:
             raise ValueError("Volume must be positive")
-        
-        if not math.isfinite(self.cubic_meters):
+
+        if not math.isfinite(self.cubic_metres):
             raise ValueError("Volume must be finite")
 
     @property
     def cubic_feet(self) -> float:
         """Convert to cubic feet."""
-        return self.cubic_meters * 35.315
-    
+        return self.cubic_metres * 35.315
+
     @property
     def liters(self) -> float:
         """Convert to liters."""
-        return self.cubic_meters * 1000
-    
+        return self.cubic_metres * 1000
+
     def __str__(self) -> str:
         """String representation for display."""
-        return f"{self.cubic_meters:.2f} m³"
-    
+        return f"{self.cubic_metres:.2f} m³"
+
     def __repr__(self) -> str:
         """String representation for debugging."""
-        return f"Volume({self.cubic_meters})"
+        return f"Volume({self.cubic_metres})"
