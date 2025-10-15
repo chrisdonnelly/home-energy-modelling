@@ -30,6 +30,7 @@ class Zone:
         building_elements: List of building elements associated with this zone
         ventilation_rate: Air change rate for ventilation
         temperature_setpoint: Target temperature for the zone
+        thermal_bridges: List of pre-normalized thermal bridges as ThermalConductance value objects
     """
 
     id: UUID
@@ -39,6 +40,7 @@ class Zone:
     building_elements: list[BuildingElement]
     ventilation_rate: AirChangeRate
     temperature_setpoint: Temperature
+    thermal_bridges: list[ThermalConductance]
 
     def calculate_total_building_element_area(self) -> Area:
         """Calculate the total area of all building elements in the zone.
@@ -70,6 +72,33 @@ class Zone:
         )
 
         return ThermalConductance(w_per_k=thermal_conductance)
+
+    def calculate_total_thermal_bridge_heat_transfer_coefficient(
+        self,
+    ) -> ThermalConductance:
+        """Calculate total thermal bridge heat transfer coefficient.
+
+        Returns:
+            Total thermal bridge heat transfer coefficient in W/K as ThermalConductance value object
+        """
+        return ThermalConductance(
+            w_per_k=sum(bridge.w_per_k for bridge in self.thermal_bridges)
+        )
+
+    def calculate_total_fabric_heat_transfer_coefficient(self) -> ThermalConductance:
+        """Calculate total fabric heat transfer coefficient (W/K) across all building elements.
+
+        This sums the heat transfer coefficients (area * U-value) for all building elements
+        in the zone.
+
+        Returns:
+            Total fabric heat transfer coefficient in W/K as ThermalConductance value object
+        """
+        total_fabric_heat_transfer_coefficient = sum(
+            element.calculate_fabric_heat_transfer_coefficient().w_per_k
+            for element in self.building_elements
+        )
+        return ThermalConductance(w_per_k=total_fabric_heat_transfer_coefficient)
 
     def __str__(self) -> str:
         """String representation for display."""

@@ -3,9 +3,8 @@ from functools import cached_property
 from uuid import UUID
 
 from domain.building.entities import BuildingElement, Zone
-from domain.building.value_objects import Area, Volume
-from domain.energy.value_objects import Power
-from domain.shared.value_objects import ThermalResistance
+from domain.building.value_objects import Area, ThermalConductance, Volume
+from domain.shared.value_objects import ThermalTransmittance
 
 
 @dataclass(frozen=True)
@@ -13,10 +12,13 @@ class Building:
     """Building aggregate root.
 
     Represents a complete building with multiple thermal zones.
-    This is the aggregate root that ensures consistency accross
+    This is the aggregate root that ensures consistency across
     all building-related entities and value objects.
 
     Attributes:
+        id: Unique identifier for the building
+        name: Human-readable name for the building
+        zones: List of thermal zones within the building
     """
 
     id: UUID
@@ -40,29 +42,63 @@ class Building:
         """Get all building elements across all zones."""
         return [element for zone in self.zones for element in zone.building_elements]
 
-    def calculate_total_fabric_heat_loss(self) -> Power:
-        """Calculate total fabric heat loss across all building elements.
+    def calculate_total_fabric_heat_transfer_coefficient(self) -> ThermalConductance:
+        """Calculate total fabric heat transfer coefficient (W/K) across all zones."""
+        total_fabric_heat_transfer_coefficient = sum(
+            zone.calculate_total_fabric_heat_transfer_coefficient().w_per_k
+            for zone in self.zones
+        )
+        return ThermalConductance(w_per_k=total_fabric_heat_transfer_coefficient)
+
+    def calculate_total_ventilation_heat_transfer_coefficient(
+        self,
+    ) -> ThermalConductance:
+        """Calculate total ventilation heat transfer coefficient (W/K) across all zones."""
+        total_ventilation_heat_transfer_coefficient = sum(
+            zone.calculate_ventilation_heat_transfer_coefficient().w_per_k
+            for zone in self.zones
+        )
+        return ThermalConductance(w_per_k=total_ventilation_heat_transfer_coefficient)
+
+    def calculate_total_thermal_bridge_heat_transfer_coefficient(
+        self,
+    ) -> ThermalConductance:
+        """Calculate total thermal bridge heat transfer coefficient (W/K) across all zones."""
+        total_thermal_bridge_heat_transfer_coefficient = sum(
+            zone.calculate_total_thermal_bridge_heat_transfer_coefficient().w_per_k
+            for zone in self.zones
+        )
+        return ThermalConductance(
+            w_per_k=total_thermal_bridge_heat_transfer_coefficient
+        )
+
+    def calculate_total_heat_transfer_coefficient(self) -> ThermalConductance:
+        """Calculate total Heat Transfer Coefficient (HTC) in W/K.
+
+        HTC = fabric HTC + ventilation HTC + thermal bridges
 
         Returns:
-            Total fabric heat loss in Watts as Power value object
+            Total Heat Transfer Coefficient (HTC) in W/K as ThermalConductance value object
         """
-        total_fabric_heat_loss = sum(
-            element.calculate_fabric_heat_loss().watts
-            for element in self.building_elements
+        fabric_htc = self.calculate_total_fabric_heat_transfer_coefficient().w_per_k
+        ventilation_htc = (
+            self.calculate_total_ventilation_heat_transfer_coefficient().w_per_k
         )
-        return Power(watts=total_fabric_heat_loss)
+        thermal_bridges_htc = (
+            self.calculate_total_thermal_bridge_heat_transfer_coefficient().w_per_k
+        )
+        return ThermalConductance(
+            w_per_k=fabric_htc + ventilation_htc + thermal_bridges_htc
+        )
 
-    def calculate_total_thermal_resistance(self) -> ThermalResistance:
-        """Calculate total thermal resistance across all building elements."""
-        # This would aggregate thermal resistance calculations
-        # from all building elements in all zones
-        # For now, return a placeholder value
-        return ThermalResistance(m2_k_per_w=0.0)
+    def calculate_heat_loss_parameter(self) -> ThermalTransmittance:
+        """Calculate heat loss parameter (HLP) in W/m²·K.
 
-    def validate_building_consistency(self) -> bool:
-        """Validate that the building aggregate is internally consistent."""
-        # Ensure zones don't overlap
-        # Ensure building elements are properly assigned
-        # Ensure thermal calculations are consistent
-        # For now, return True as a placeholder
-        return True
+        HLP = Total HTC / Total floor area
+
+        Returns:
+            Heat loss parameter in W/m²·K as ThermalTransmittance value object
+        """
+        total_htc = self.calculate_total_heat_transfer_coefficient().w_per_k
+        area = self.total_floor_area.square_metres
+        return ThermalTransmittance(w_per_m2_k=total_htc / area)
